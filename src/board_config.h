@@ -78,12 +78,30 @@ _Static_assert(PIN_TCK >= PIO_GPIO_BASE && PIN_TCK < PIO_GPIO_BASE + 32 &&
 #define FTDI_SINGLE_CHANNEL 0
 #endif
 
+// FTDI_QUAD: emulate an FT4232H (four interfaces, 0x0403:0x6011) instead of
+// an FT2232H. Required by Xilinx hw_server (Vivado), which only accepts
+// FT4232H-class cables carrying a Xilinx EEPROM persona. Channel A keeps
+// the MPSSE/JTAG logic; B/C/D answer as idle UARTs. Channel endpoints:
+// A OUT 0x02/IN 0x81, B 0x04/0x84, C 0x06/0x86, D 0x08/0x88.
+//   cmake -DQUAD=1 ..
+#ifndef FTDI_QUAD
+#define FTDI_QUAD 0
+#endif
+#if FTDI_QUAD && FTDI_SINGLE_CHANNEL
+#error "QUAD and SINGLE_CHANNEL are mutually exclusive"
+#endif
+
 #define FTDI_VID          0x0403
 
 #if FTDI_SINGLE_CHANNEL
 #define FTDI_PID          0x6014      // FT232H
 #ifndef FTDI_BCD_DEVICE
 #define FTDI_BCD_DEVICE   0x0900
+#endif
+#elif FTDI_QUAD
+#define FTDI_PID          0x6011      // FT4232H
+#ifndef FTDI_BCD_DEVICE
+#define FTDI_BCD_DEVICE   0x0800
 #endif
 #else
 #define FTDI_PID          0x6010      // FT2232C/D/H
@@ -99,13 +117,26 @@ _Static_assert(PIN_TCK >= PIO_GPIO_BASE && PIN_TCK < PIO_GPIO_BASE + 32 &&
 // after "FT" in iSerial, so `lsusb -v | grep iSerial` confirms what is running.
 #define FW_BUILD_TAG "C4"
 
+#if FTDI_QUAD
+#define FTDI_STR_MANUFACTURER "Xilinx"
+#else
 #define FTDI_STR_MANUFACTURER "FTDI"
+#endif
 #if FTDI_SINGLE_CHANNEL
 // "Single RS232-HS" is the stock FT232H string. If Efinity is fussy, set this
 // to the exact product string of a cable already known to work with it.
 #ifndef FTDI_STR_PRODUCT
 #define FTDI_STR_PRODUCT  "Single RS232-HS"
 #endif
+#elif FTDI_QUAD
+// Persona of a Xilinx-cable FT4232H (strings observed live from the accepted
+// HelloFPGA FT4232H, 2026-08-24 dual capture): hw_server rejects stock FTDI
+// strings before any MPSSE traffic. Full EEPROM image served from
+// eeprom_img.h, extracted from the same capture.
+#ifndef FTDI_STR_PRODUCT
+#define FTDI_STR_PRODUCT  "Adapt Device"
+#endif
+#define FTDI_STR_SERIAL_OVERRIDE "26SF041"
 #else
 #define FTDI_STR_PRODUCT  "Dual RS232-HS"
 #endif

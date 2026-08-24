@@ -40,6 +40,7 @@ target_link_libraries(pio_ftdi
     hardware_pio
     hardware_clocks
     hardware_gpio
+    hardware_flash
     tinyusb_device
 )
 
@@ -88,6 +89,13 @@ endif()
 
 if(SINGLE_CHANNEL)
     target_compile_definitions(pio_ftdi PRIVATE FTDI_SINGLE_CHANNEL=1)
+endif()
+
+# Emulate an FT4232H (four interfaces, PID 0x6011) instead of an FT2232H.
+# Required by Xilinx hw_server (Vivado); see the Vivado section in README.md.
+#   cmake -DQUAD=1 ..
+if(QUAD)
+    target_compile_definitions(pio_ftdi PRIVATE FTDI_QUAD=1)
 endif()
 
 if(PRODUCT_STRING)
