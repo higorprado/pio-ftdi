@@ -63,9 +63,48 @@ configure step always prints the resulting pinout; check it before flashing.
 | `-DJTAG_PINS="9;8;7;6"` | pinout, order TCK TDI TDO TMS |
 | `-DRP2040=1` | build for RP2040 instead of RP2350B |
 | `-DSINGLE_CHANNEL=1` | present as FT232H rather than FT2232H |
+| `-DQUAD=1` | present as FT4232H with Xilinx EEPROM persona, for Vivado |
 | `-DBUILD_TAG=xy` | shows in the USB serial as `FTxy....` |
 | `-DPRODUCT_STRING="..."` | match a known-good cable's product string |
 | `-DTDO_PULLDOWN=1` | bias TDO low, for bring-up |
+
+## Vivado / Xilinx hw_server
+
+Build with the QUAD option:
+
+```sh
+cmake -DQUAD=1 ..
+make -j$(nproc)
+```
+
+Flash `pio_ftdi.uf2` as usual. The device enumerates as an FT4232H
+(`0403:6011`) carrying the Xilinx EEPROM persona that `hw_server` requires.
+The default persona is part of the firmware image: it needs no post-flash
+step and survives reboots and re-flashes by construction. Vivado's Hardware
+Manager lists the adapter as `Xilinx/PIOJTAG000A`.
+
+### Custom serial (optional)
+
+The only reason to touch the EEPROM is choosing your own serial. AMD's own
+generator ships with every Vivado install; one invocation persists across
+power cycles, with no further maintenance steps:
+
+```sh
+vivado -mode batch -source $VIVADO/scripts/program_ftdi/program_ftdi.tcl \
+  -tclargs FT4232H <serial> pio-ftdi "PIO-JTAG-01 FT4232H" Xilinx \
+  "pio-ftdi JTAG adapter"
+```
+
+The EEPROM image layout and checksum are documented in
+[docs/eeprom-contract.md](docs/eeprom-contract.md); `tools/gen_eeprom_img.py`
+regenerates the compiled default from spec and self-tests against a captured
+AMD write.
+
+### Known Linux issue
+
+The `ftdi_sio` kernel driver binds interface 0 at enumeration and hides the
+device from D2XX discovery. Workaround: run `hw_server` once — it claims
+and releases the interface, after which Vivado finds the device normally.
 
 ## One tree, both parts
 
